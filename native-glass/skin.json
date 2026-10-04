@@ -1,0 +1,38 @@
+{
+  "$schema": "https://schemas.linxin666.org/dsh-skin/v2.json",
+  "skinManifestVersion": 2,
+  "id": "native-glass",
+  "name": "原生玻璃",
+  "nameEn": "Native Glass",
+  "version": "1.9.2",
+  "author": "念w月",
+  "tagline": "官方配色 · 毛玻璃输入卡与浮层",
+  "description": "官方外观 + 毛玻璃输入框 + 通透底图：画布与左侧栏跟随同一套柔光底图（浓淡联动「背景遮蔽」滑杆），输入卡是半透明磨砂，消息气泡的底色由「气泡不透明度」驱动。浮层（/ 命令面板、输入框下方配件弹層、模型提问/计划评审卡）与输入卡共用同一套玻璃材质。修复了 Windows 上外壳挡住底图的问题（前端平台特化规则 x 皮肤 token 锁）及同类隐患，含标题栏拖拽条。菜单分组吸顶标题仍锁回官方不透明原值。",
+  "tags": [
+    "native",
+    "glass",
+    "frosted",
+    "minimal",
+    "composer"
+  ],
+  "accent": "#7f8ea3",
+  "order": 99,
+  "preview": {
+    "light": "preview/light.jpg",
+    "dark": "preview/dark.jpg"
+  },
+  "contributes": {
+    "stylesheet": "skin.css",
+    "patches": "patches.css",
+    "backgroundMedia": {
+      "light": {
+        "type": "image",
+        "src": "assets/frost-light.jpg"
+      },
+      "dark": {
+        "type": "image",
+        "src": "assets/frost-dark.jpg"
+      }
+    }
+  }
+}

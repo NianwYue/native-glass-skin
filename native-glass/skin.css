@@ -1,0 +1,159 @@
+/**
+ * Native Glass v1.3 — 官方外观 + 毛玻璃输入卡（纯 L1 token 重映射，无 patches.css / hooks.mjs）
+ *
+ * 为什么需要皮肤：皮肤中心的「输入卡模糊」只是 body 级跟随层（data-dsh-composer-frost），规则为
+ *   html[data-dsh-backdrop-active][data-dsh-conversation-content] [data-dsh-composer-frost]
+ *     { backdrop-filter: blur(var(--dsh-input-card-blur)) }
+ * 官方默认皮肤没有底图（backgroundMedia），marker 不成立，所以那条规则永远是 inert 的。
+ *
+ * 本皮肤做三件事：
+ *   1) 声明 backgroundMedia → 让 data-dsh-backdrop-active 成立，跟随层开始工作；
+ *   2) 底图带细颗粒 + 柔和斑驳 → 被 20px 模糊糊平后，卡片内外的质感差别才看得出来
+ *      （模糊一张平滑渐变是看不出效果的，只会显得"透明"）；
+ *   3) 官方输入卡是不透明的，把它改成半透明偏"奶"的磨砂填充。
+ *
+ * ⚠️ 关键：插件对"有底图的皮肤"会自动派生一整套半透明面板 ——
+ *     bg-layer-1..4 / bg-overlay / specific-sidebar-fill / specific-menu / tip /
+ *     selector / bubble / interactive-bg-hover ... = color-mix(bg-base 60~65%, transparent)
+ *   于是侧栏、弹层、悬浮态全都跟着透了。**显式声明这些 token 即可跳过该派生**，
+ *   所以下面把它们逐个锁回官方原值（引用官方静态色板变量，随主题自动正确）。
+ *
+ * 两个可调旋钮：
+ *   「输入卡模糊」0–20px  → 糊度
+ *   「背景遮蔽」0–100%    → 画布浓淡 + 卡片厚薄联动，越高越接近原生、玻璃越含蓄
+ */
+
+:root {
+  /* ——— 效果层：只有这两个是真的改了 ——— */
+  /* 官方浅色底 #ffffff，只调透明度：遮蔽 0% → 全透，100% → 72% 不透明 */
+  --dsw-alias-bg-base: rgba(255, 255, 255, calc(var(--dsw-skin-scrim, 0.85) * .50 + .22));
+  /* ── 统一玻璃材质填充（2026-10-05）─────────────────────────────
+     输入卡与**所有浮层**（菜单 / 下拉 / 弹层 / 悬浮卡）共用这一份填充。
+     注意 --dsh-glass-fill 不带 --dsw-alias- / --dsw-specific- 前缀，
+     所以管线不会把它同步到 body，它留在 <html> 上作为全局默认值 —— 够用，
+     因为没有任何官方规则在 body 上定义这个名字。 */
+  --dsh-glass-fill: rgba(255, 255, 255, calc(var(--dsw-skin-scrim, 0.85) * .28 + .50));
+  /* 浮层专用：更实一档。浮层是「盖在任意正文上的临时面板」，要压住下面的字，
+     透明度天然得比输入卡高；1.9.0 起与输入卡分开，避免为了浮层可读性把输入卡做厚。
+     1.9.2 按用户要求"再稍微透一点"：系数 .12+.86 → .18+.78 → .20+.72。 */
+  --dsh-glass-fill-popover: rgba(255, 255, 255, calc(var(--dsw-skin-scrim, 0.85) * .20 + .72));
+  /* 官方输入卡填充 #ffffff → 半透明磨砂（遮蔽 85% 时约 74% 不透明） */
+  --dsw-specific-input-major: var(--dsh-glass-fill);
+
+  /* ——— 面板层：锁回官方原值，阻止插件把它们派生为半透明 ——— */
+  --dsw-alias-bg-layer-1: var(--dsw-static-neutral-bluish-00);
+  --dsw-alias-bg-layer-2: var(--dsw-static-neutral-bluish-00);
+  --dsw-alias-bg-layer-3: var(--dsw-static-neutral-bluish-00);
+  --dsw-alias-bg-layer-4: var(--dsw-static-neutral-bluish-00);
+  --dsw-alias-bg-overlay: var(--dsw-static-neutral-bluish-150);
+  --dsw-alias-bg-document-preview: var(--dsw-static-neutral-bluish-100);
+  --dsw-alias-bg-module-platform: var(--dsw-static-neutral-bluish-60);
+  --dsw-alias-bg-multi-select: var(--dsw-static-neutral-bluish-60);
+  --dsw-alias-bg-skeleton: #0000000a;
+  --dsw-alias-interactive-bg-hover: #2631480f;
+  --dsw-alias-interactive-bg-active: #2631481a;
+  --dsw-alias-interactive-bg-hover-accent: #26314824;
+  --dsw-alias-interactive-bg-hover-solid: var(--dsw-static-neutral-bluish-75);
+  /* 气泡：官方浅色值 #edf3fe / #d3e2ff，alpha 完全交给「气泡不透明度」滑杆。
+     滑杆 0 = 气泡彻底透明（无地板）—— 前提是「气泡模糊」也为 0，
+     否则模糊层会在全透明气泡处露出一块圆角区域。 */
+  /* 6) 中和「皮肤中心插件」给输入区配件强加的磨砂（对端机器实测定位，2026-10-04）
+ * 插件 lib/client.js:4654-4655：
+ *   backdrop-filter: blur(var(--dsh-composer-accessory-blur, var(--dsh-input-card-blur, 10px))) !important;
+ * 定义第一档 token = 0px 即让它取 0（数据面，不看特异性、不看文档顺序）。
+ * 注意：blur(0px) 仍会创建「背景根」⇒ 必须配合 patches.css 第 8 节的选择器面 backdrop-filter: none。 */
+  --dsh-composer-accessory-blur: 0px;
+
+--dsw-specific-bubble: rgba(237, 243, 254, var(--dsh-skin-bubble-alpha, .5));
+  --dsw-specific-bubble-highlight: rgba(211, 226, 255, var(--dsh-skin-bubble-alpha, .5));
+  --dsw-specific-login-input: var(--dsw-static-neutral-bluish-50);
+  --dsw-specific-menu: var(--dsw-menu-surface-fill);
+  --dsw-specific-selector: var(--dsw-static-neutral-bluish-60);
+  /* 侧栏：改为**跟随底图**（设计变更，用户拍板）。
+     ⚠️ 原先这一行是锁成官方不透明值 —— 那正是 Windows 上"底图被外壳挡死"的根因之一：
+        前端有一条平台特化规则 `[data-windows-titlebar] .*_frame{background:var(--dsw-specific-sidebar-fill)}`
+        （连它的 ::before 标题栏拖拽条也用这个 token），我把它锁成不透明 → 整个外壳盖住 z-index:-2 的底图。
+     现在与画布同一套公式（联动「背景遮蔽」滑杆）：
+        · 底图能透出来（实测：侧栏 B−R +0.71 → +3.23，画布 +2.59 不变）
+        · 弹层菜单不受影响（走 --dsw-specific-menu / bg-layer-*，仍为实色） */
+  --dsw-specific-sidebar-fill: rgba(255, 255, 255, calc(var(--dsw-skin-scrim, 0.85) * .50 + .22));
+  --dsw-specific-sidebar-nav-item-hover: var(--dsw-static-neutral-bluish-75);
+  --dsw-specific-sidebar-nav-item-active: var(--dsw-static-neutral-bluish-100);
+  --dsw-specific-sidebar-nav-item-active-accent: var(--dsw-static-deepseek-100);
+  --dsw-specific-tip: var(--dsw-static-neutral-bluish-60);
+}
+
+body[data-ds-dark-theme] {
+  /* ——— 效果层 ——— */
+  /* 官方暗色底 #151517，只调透明度 */
+  --dsw-alias-bg-base: rgba(21, 21, 23, calc(var(--dsw-skin-scrim, 0.85) * .50 + .22));
+  /* 统一玻璃材质填充 —— 暗色配方（见文件开头的说明） */
+  --dsh-glass-fill: rgba(62, 64, 70, calc(var(--dsw-skin-scrim, 0.85) * .28 + .50));
+  /* 浮层专用（暗色）—— 见浅色块说明 */
+  --dsh-glass-fill-popover: rgba(62, 64, 70, calc(var(--dsw-skin-scrim, 0.85) * .20 + .72));
+  /* 官方输入卡是 #2c2c2e；刻意提到 #3e4046 并加透明度：
+     比原生略亮一点的冷灰正是"磨砂玻璃"的观感（用同色只会显得透明） */
+  --dsw-specific-input-major: var(--dsh-glass-fill);
+
+  /* ——— 面板层：锁回官方原值 ——— */
+  --dsw-alias-bg-layer-1: var(--dsw-static-neutral-bluish-875);
+  --dsw-alias-bg-layer-2: var(--dsw-static-neutral-bluish-850);
+  --dsw-alias-bg-layer-3: var(--dsw-static-neutral-bluish-800);
+  --dsw-alias-bg-layer-4: var(--dsw-static-neutral-bluish-800);
+  --dsw-alias-bg-overlay: var(--dsw-static-neutral-bluish-700);
+  --dsw-alias-bg-document-preview: var(--dsw-static-neutral-bluish-950);
+  --dsw-alias-bg-module-platform: var(--dsw-static-neutral-bluish-800);
+  --dsw-alias-bg-multi-select: var(--dsw-static-neutral-850);
+  --dsw-alias-bg-skeleton: #ffffff14;
+  --dsw-alias-interactive-bg-hover: #ffffff14;
+  --dsw-alias-interactive-bg-active: #ffffff24;
+  --dsw-alias-interactive-bg-hover-accent: #ffffff3d;
+  --dsw-alias-interactive-bg-hover-solid: var(--dsw-static-neutral-bluish-800);
+  /* 气泡：官方暗色值 #2c2c2e / #43454a，alpha 完全交给滑杆（无地板） */
+  --dsw-specific-bubble: rgba(44, 44, 46, var(--dsh-skin-bubble-alpha, .5));
+  --dsw-specific-bubble-highlight: rgba(67, 69, 74, var(--dsh-skin-bubble-alpha, .5));
+  --dsw-specific-login-input: var(--dsw-static-neutral-bluish-900);
+  --dsw-specific-menu: #303136f0;
+  --dsw-specific-selector: var(--dsw-static-neutral-bluish-800);
+  /* 侧栏：跟随底图（同浅色块，见上方说明）。官方暗色值 #1b1b1c = rgb(27,27,28) */
+  --dsw-specific-sidebar-fill: rgba(21, 21, 23, calc(var(--dsw-skin-scrim, 0.85) * .50 + .22));
+  --dsw-specific-sidebar-nav-item-hover: var(--dsw-static-neutral-bluish-850);
+  --dsw-specific-sidebar-nav-item-active: var(--dsw-static-neutral-bluish-750);
+  --dsw-specific-sidebar-nav-item-active-accent: var(--dsw-static-neutral-bluish-800);
+  --dsw-specific-tip: var(--dsw-static-neutral-bluish-800);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   统一浮层材质（2026-10-05）
+   ─────────────────────────────────────────────────────────────────────
+   目标：/ 命令面板、输入框下方配件点开的弹层、模型提问卡……凡是浮层，
+        全部与输入卡共用同一套毛玻璃配方。
+
+   为什么必须写在 **body 级**选择器，而不能写在 :root：
+   1) 管线只把 `--dsw-alias-*` / `--dsw-specific-*` 前缀的 :root 声明
+      「同步到 body」；`--dsw-menu-surface-fill`、`--dsw-hovercard-bg`
+      不匹配这个前缀 ⇒ 写在 :root 只会落在 <html> 上。而官方是在 body 上
+      定义同名 token 的，元素自身的声明永远胜过从 html 继承来的值 ⇒ 无效。
+   2) 官方在 macOS 上有一条平台兜底：
+        html[data-platform="darwin"] body { --dsw-specific-menu: #303136f0 }   → (0,1,2)
+      把浮层强制成 94% 不透明的实色（"没有菜单底层时保留接近不透明的填充"）。
+      本皮肤 :root 里那条 --dsw-specific-menu 也被管线克隆到 body，同分 (0,1,2)，
+      而皮肤的 <link> 在 <head> 里、官方主题是运行时 append 的 <style>（在 DOM 更后面）
+      ⇒ 官方在后、官方赢 ⇒ 弹层看起来根本没有毛玻璃。
+      这里用 body:not([data-ds-dark-theme]) / body[data-ds-dark-theme]，
+      加作用域前缀后是 (0,2,2) ⇒ 稳定压过官方那条，且亮/暗两个主题都覆盖。
+
+   糊度也统一：跟随「输入卡模糊」滑杆（0–20px），与输入卡同一条公式。
+   ═══════════════════════════════════════════════════════════════════════ */
+body:not([data-ds-dark-theme]),
+body[data-ds-dark-theme] {
+  /* 官方浮层材质 token —— 全部指向同一个玻璃填充。
+     这里的 !important 是关键：本块不是 :root，管线不会对它做「同步到 body」的
+     重要度清洗，所以 !important 能原样保留，压过官方在任何位置、任何特异性下
+     写的同名声明。 */
+  --dsw-menu-surface-fill: var(--dsh-glass-fill-popover) !important;   /* MenuSurface 的 .material（/ 命令面板、各类下拉） */
+  --dsw-specific-menu: var(--dsh-glass-fill-popover) !important;        /* 各处自绘弹层（统计面板 / 任务清单 / 日程 / 悬浮卡…） */
+  --dsw-hovercard-bg: var(--dsh-glass-fill-popover) !important;
+  /* 官方默认 blur(40px) saturate(150%)；这里跟输入卡同配方 */
+  --dsw-menu-backdrop-filter: blur(var(--dsh-input-card-blur, 20px)) saturate(1.06) !important;
+}

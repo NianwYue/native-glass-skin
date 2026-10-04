@@ -1,0 +1,236 @@
+/**
+ * Native Glass — 真·磨砂层 + 玻璃硬边与厚度（L3 自由选择器，高敏感）
+ *
+ * 为什么必须加这一层：插件自带的磨砂跟随层（data-dsh-composer-frost）挂在 z-index:-1，
+ * 也就是**消息之下**，它只能糊到背景图；滚动到输入框后面的正文依旧清晰，
+ * 透过半透明卡片看过去就是"零失真"的怪感。真正的毛玻璃必须有一层位于
+ * 「正文之上、输入卡之下」的 backdrop-filter。
+ *
+ * 这一层由输入区座位（[data-composer-seat]）自己的**伪元素**承担。座位本体不能带 filter：
+ * 它是 shell 内 fixed tooltip 的祖先，一旦成为包含块，悬停发送键会让整个会话跳动
+ * 几百像素（插件源码注释里的 issue #1724）。伪元素没有后代，所以带 filter 是安全的；
+ * z-index:-1 让它在座位自己的层叠上下文里落到最底 —— 座位整体 z-index:7 位于消息之上，
+ * 于是这一层正好夹在「消息」与「输入卡 / 附件行」之间。
+ */
+
+/* 1) 官方那道「渐隐到页面底色」的遮罩（seat 自身的背景）换成磨砂玻璃 */
+[data-phase="active"] [data-composer-seat],
+[data-content-phase="active"] [data-composer-seat] {
+  background: none !important;
+}
+
+/* 2) 真磨砂层：糊的是从输入框下面滚过去的正文。
+      糊度跟着「输入卡模糊」滑杆走（0–20px），所以那个滑杆现在是真的有效了。 */
+
+/* 3) 玻璃厚度：顶部亮线 + 底部内阴影，叠在官方 elevation 之上。
+      box-shadow 不会让卡片成为包含块，所以这条路径对 shell 的 fixed tooltip 是安全的。
+
+      ⚠️ 1.8.9（2026-10-05）：磨砂层从「卡片本体」再往外搬一层，挪到 **卡片的 ::before**。
+      为什么必须改 —— backdrop-filter 会给**后代**造成「背景根(backdrop root)」，
+      后代自己的 backdrop-filter 只能糊到这个根以内的内容。
+      而 / 命令面板、@ 提及面板恰恰就是输入卡的后代：input-trigger 源码自己用
+      `listRef.current.closest("[data-composer-card]")` 判断点击是否落在卡内，
+      面板 CSS 也是 `bottom: calc(100% + 4px)`（贴着卡的上沿、用卡的宽度）。
+      于是面板自带的 backdrop-filter 只能"糊"到卡片自己那块纯色底板
+      ⇒ 下面的正文原样透出来，看着就是"面板没糊、还是透的"。
+      Chrome 最小复现实测：磨砂挂卡本体时，面板区条纹扩散 178（完全没糊）；
+      搬到 ::before 后扩散 0（完全糊上）。
+      顺带的好处：卡片不再因为有 backdrop-filter 而成为 fixed 后代的包含块，
+      官方 issue #1724 那类 tooltip 抖动的前提也跟着消失。 */
+[data-composer-card] {
+  position: relative;
+  isolation: isolate;
+  /* 底板填充与模糊一起搬走，否则会和 ::before 叠成两层、越叠越实 */
+  background: none !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .75),
+    inset 0 -16px 26px -22px rgba(15, 23, 42, .16),
+    var(--dsw-elevation-soft) !important;
+}
+
+[data-composer-card]::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: var(--dsw-specific-input-major);
+  backdrop-filter: blur(var(--dsh-input-card-blur, 20px)) saturate(1.06);
+  -webkit-backdrop-filter: blur(var(--dsh-input-card-blur, 20px)) saturate(1.06);
+  pointer-events: none;
+}
+
+body[data-ds-dark-theme] [data-composer-card] {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .10),
+    inset 0 -20px 32px -26px rgba(0, 0, 0, .65),
+    var(--dsw-elevation-soft) !important;
+}
+
+/* 4) 渐变描边（specular rim）—— **无 mask 版**（2026-10-04 修复 hover 闪烁）
+ * 原实现用 mask-composite 挖空中间留 1px 边框；实测 hover 输入卡内元素（上下文用量指示器）
+ * 会让 mask 反复重算 → 画面闪烁；切官方皮肤即消失 ⇒ 元凶是这套昂贵机制。
+ * 改为等价的 inset box-shadow 方向性描边：上缘最亮、左右衰减、下缘暗边 —— 观感一致，成本极低。 */
+[data-composer-card]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .30),
+    inset 1px 0 0 rgba(255, 255, 255, .10),
+    inset -1px 0 0 rgba(255, 255, 255, .05),
+    inset 0 -1px 0 rgba(0, 0, 0, .22);
+}
+
+body[data-ds-dark-theme] [data-composer-card]::after {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .18),
+    inset 1px 0 0 rgba(255, 255, 255, .07),
+    inset -1px 0 0 rgba(255, 255, 255, .03),
+    inset 0 -1px 0 rgba(0, 0, 0, .28);
+}
+
+/* 5) 消息气泡：接上皮肤中心的「气泡不透明度 / 气泡模糊」两个滑杆。
+      插件只负责把 --dsh-skin-bubble-alpha / --dsh-skin-bubble-blur 写到 body 上，
+      消费是皮肤的事 —— 不接就一直空转（这两个滑杆之前"没生效"就是这个原因）。
+      * 不透明度：在 skin.css 里由 --dsw-specific-bubble 消费。
+      * 模糊：在这里消费。官方气泡元素没有 position，伪元素会按祖先定位乱跑，
+        所以显式加 position: relative（它不会让元素成为 fixed 后代的包含块，安全）；
+        模糊挂在伪元素而不是气泡本体，同样是为了不踩 #1724 那个包含块的坑。
+      * 选择器用类名后缀 _bubble —— 哈希前缀会变、后缀稳定，这是插件源码自己
+        标注过的约定（同 _userRow / _fade 那类）。 */
+/* 6) 修复：Windows 上"外壳挡底图"（对端机器定位并验证，此处补上代码级出处）
+ *
+ * 前端 AppFrame 里有一条【平台特化】规则（本机前端包中 grep 到的原文）：
+ *     [data-windows-titlebar] ._xxxxxx_frame { background: var(--dsw-specific-sidebar-fill); … }
+ * 而本皮肤为了"让面板保持原生不透明"，正好把这个 token 锁成了官方值 #1b1b1c。
+ * 于是 Windows 上整个外壳变成不透明，把 z-index:-2 的底图挡死：
+ *     0.22×(21,21,23) + 0.78×(27,27,28) = (25.7,25.7,26.9)   ← 与实测 (25.25,25.25,26.25) 吻合
+ * macOS 上 .*_frame 走的是基础规则 var(--dsw-alias-bg-base)（半透明），所以没有这个现象：
+ * 不是"两台构建不同"，而是这条 Windows 专有规则只在带该属性的平台上匹配。
+ *
+ * 修法：让外壳透明。**必须用不带作用域前缀的裸选择器** —— 皮肤管线会自动在源码选择器
+ * 前面插一层 `html[data-dsh-skin="…"] `，所以：
+ *   · 源码写 `html[data-dsh-skin="…"] [class*="_frame"]` → 双重 html → 永远不匹配（静默失效）
+ *   · 源码写 `[data-windows-titlebar] [class*="_frame"]` → 变成
+ *     `html[data-dsh-skin="…"] [data-windows-titlebar] [class*="_frame"]`，
+ *     即"要求 html 的后代带这个属性"，但该属性由前端设在 **document.documentElement（html 自身）** 上
+ *     （三处代码均为 document.documentElement.hasAttribute("data-windows-titlebar")）
+ *     → 同样永远不匹配。
+ * 因此这里只能裸写 `[class*="_frame"]`（= 对端机器上实测通过的版本）。
+ *
+ * 代价：macOS 上外壳的 var(--dsw-alias-bg-base)（0.22 薄纱）也会被去掉 → 底图会更清楚一点点。
+ * 这是"取消外壳对底图的遮挡"，与设计意图一致，不是回归。
+ * 侧栏（.*_sidebarCol，与外壳共用同一 token）不受影响，已逐像素验证。
+ */
+[class*="_frame"] {
+  background-color: transparent !important;
+}
+
+/* 6b) 同一个坑的第二处：Windows 标题栏那条**拖拽条**也用同一 token
+ *     前端原文：
+ *       [data-windows-titlebar] ._6Qf49G_frame:before{
+ *         content:""; height:var(--dsh-windows-titlebar-height);
+ *         background:var(--dsw-specific-sidebar-fill);
+ *         -webkit-app-region:drag; position:absolute; inset:0 0 auto }
+ *     它同样会挡住窗口顶部那一条里的底图。
+ *     只清 background-color（不用 background: none）—— 保留它的高度与 -webkit-app-region:drag，
+ *     否则 Windows 上的窗口拖拽区会失效。
+ *     （这是"锁定 token × 官方消费者"全量审计时发现的：官方共有 36 处消费本皮肤锁过的 token，
+ *       其中平台特化的只有 frame 和 frame:before 这两处，现已全部覆盖。） */
+[class*="_frame"]::before {
+  background-color: transparent !important;
+}
+
+/* 7) 移除「气泡毛玻璃层」（2026-10-04，用户实测修复）
+ * 原实现：对每个 [class*="_bubble"] 加 position:relative + ::before{backdrop-filter: blur(var(--dsh-skin-bubble-blur,10px))}
+ * 实测症状：光标移到**用户消息的复制按钮**上时界面"鬼畜"；切到官方皮肤即消失。
+ * 机制：backdrop-filter **即使 blur(0px) 也会创建"背景根"** → hover 时按钮的过渡触发
+ *       该背景根反复重算/重合成 → 抖动。
+ * 代价：气泡模糊滑杆不再有效（气泡仍由 --dsw-specific-bubble 的 alpha 提供透明底）。
+ *      这是有意取舍：该滑杆收益小、副作用大；用户当前设置本就是 模糊=0。
+ */
+
+/* 8) 中和「皮肤中心插件」给输入区配件强加的 backdrop-filter（2026-10-04，对端机器实测定位 + 补丁）
+ * 根因不在本皮肤，而在 @linxin666/dsh-client-ui-skin-center@0.4.4 lib/client.js:4643-4663 注入的规则：
+ *   [data-slot="conversation.composer.dock"] > * / + * 等 → 不透明底 + backdrop-filter: blur(...)
+ * 那条 blur 的默认回退值是 var(--dsh-input-card-blur) ⇒ 用户把「输入卡模糊」拖到 0 它才消失
+ *   （用户实测：拖到 0 → 右侧糊斑消失 ⇒ 是它，不是本皮肤的卡片模糊）。
+ * 三重问题：① 不透明底下的 blur 视觉零收益 ② 命中元素既带后代又是 hover 目标（背景根反复重算 ⇒ 闪烁）
+ *           ③ 违反本皮肤的性能约束。
+ * 特异性：插件那条是 (0,3,1)；本皮肤管线会在源码选择器前插一层作用域 ⇒ 这里写出 (0,4,1) 稳赢。
+ * 注意：[data-dsh-backdrop-active]（在 body）与 [data-phase]（在子元素）必须是两个后代，
+ *       写成复合选择器会永久失配。
+ */
+/* 特异性：插件那条是 (0,3,1)（html[data-dsh-skin] + [data-phase] + [data-slot]）。
+ * 本皮肤管线会再插一层 html[data-dsh-skin="native-glass"]。
+ * 这里把 [data-phase] 写两遍（合法且恒真）⇒ 吐出 (0,4,1)，**严格**高于插件 ⇒ 不看文档顺序、不依赖 [data-dsh-backdrop-active]。
+ * （对端机器指出：早先那 6 条里带 [data-dsh-backdrop-active] 的 3 条在插件原选择器上打不到 ✗） */
+[data-phase="active"][data-phase="active"] [data-slot="conversation.composer.dock"] > *,
+[data-phase="active"][data-phase="active"] [data-slot="conversation.composer.dock"] + *,
+[data-phase="active"][data-phase="active"] [data-slot="conversation.input.dock"] > *,
+[data-phase="active"][data-phase="active"] [data-slot="conversation.input.dock"] + * 
+[data-phase="active"] [data-slot="conversation.composer.dock"] + *,
+[data-phase="active"] [data-slot="conversation.input.dock"] > *,
+[data-dsh-backdrop-active] [data-phase="active"] [data-slot="conversation.composer.dock"] > *,
+[data-dsh-backdrop-active] [data-phase="active"] [data-slot="conversation.composer.dock"] + *,
+[data-dsh-backdrop-active] [data-phase="active"] [data-slot="conversation.input.dock"] > * {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* 9) 「模型向用户提问 / 计划评审」卡片 —— 接入统一玻璃材质（2026-10-05）
+ * 官方（dsh-client-ui-user-questions）给这两张卡的是
+ *     background: var(--dsw-specific-input-major)   ← 本皮肤已把它做成半透明
+ * 但卡片本体**没有 backdrop-filter** ⇒ 半透明底把下面的正文原样透出来，
+ * 看起来就是"纯透明、没有底板"。
+ *
+ * 修法照抄官方浮层自己的写法（_0TPaqG_panel / MenuSurface）：
+ *   · 卡片本体：清空背景，只留 position/isolation，绝不把 backdrop-filter 挂在本体上；
+ *   · 没有后代的 ::before 承担填充 + 模糊（z-index:-1，border-radius:inherit）。
+ * 这样卡片里的选项行（带 background-color 过渡的 hover 目标）不会反复重算"背景根"，
+ * 避开 1.8.1 那个 hover 鬼畜的成因。
+ *
+ * 选择器用稳定锚点：data-question-key / data-plan-review-key 挂在 .frame 上，
+ * 卡片是它的直接子 <section>（哈希类名会变，属性不会）。
+ */
+[data-question-key] > section,
+[data-plan-review-key] > section {
+  background: none !important;
+  position: relative;
+  isolation: isolate;
+}
+
+[data-question-key] > section::before,
+[data-plan-review-key] > section::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: var(--dsh-glass-fill);
+  backdrop-filter: blur(var(--dsh-input-card-blur, 20px)) saturate(1.06);
+  -webkit-backdrop-filter: blur(var(--dsh-input-card-blur, 20px)) saturate(1.06);
+  pointer-events: none;
+}
+
+/* 10) MenuSurface 材质层 —— 直接兜底重画（2026-10-05）
+ * / 命令面板、@ 提及面板、Menu 原语下拉的底板都来自 MenuSurface：
+ *     [data-menu-material] > 第一个子 div（.material）
+ *       { background: var(--dsw-menu-surface-fill);
+ *         backdrop-filter: var(--dsw-menu-backdrop-filter) }
+ * 实测（对着截图逐像素量）：只改 token 时这一层会掉色/掉模糊
+ * —— shell 给「输入区配件」画的底板规则、以及别处针对
+ *    [data-slot="conversation.*.dock"] > * 的 backdrop-filter:none 都会波及它，
+ * 结果就是 / 面板看着"还是透的"（糊没生效，下面的正文原样透出来）。
+ * 这里不绕 token，直接用稳定属性锚点把它按统一玻璃材质再画一遍。
+ * 两个头互补：材质层在 → 只画材质层（无后代，安全）；不在 → 宿主本体兜底上色。 */
+[data-menu-material] > [aria-hidden="true"]:first-child,
+[data-menu-material]:not(:has(> [aria-hidden="true"])) {
+  background-color: var(--dsh-glass-fill-popover) !important;
+  backdrop-filter: blur(var(--dsh-input-card-blur, 20px)) saturate(1.06) !important;
+  -webkit-backdrop-filter: blur(var(--dsh-input-card-blur, 20px)) saturate(1.06) !important;
+}
+
