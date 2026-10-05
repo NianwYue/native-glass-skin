@@ -5,10 +5,6 @@
 
 ![原生玻璃 · 新会话首页（深色）](docs/preview-home.png)
 
-| 浅色 | 深色 |
-|---|---|
-| ![浅色预览](native-glass/preview/light.jpg) | ![深色预览](native-glass/preview/dark.jpg) |
-
 > 想省事：把 [安装 prompt](install-prompt.md) 里那段话原样丢给你的 DSH，让它自己装。
 
 ---
