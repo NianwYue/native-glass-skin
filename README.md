@@ -91,20 +91,25 @@ profile 名必须是**你这台机器 GUI 实际在用的那个**（常见是 `d
 
 底图浓淡公式：`alpha = 遮蔽 × 0.50 + 0.22`，画布与侧栏共用 ⇒ 遮蔽 0 = 最透，100 = 最实。
 
-玻璃材质**分两档**（1.9.0 起），都是「背景遮蔽」的线性函数：
+玻璃材质**分三档**（1.9.0 起拆出浮层档，1.9.3 起补菜单吸顶标题档），都是「背景遮蔽」的线性函数：
 
 | 用在哪 | 公式 | 遮蔽 0（推荐值） | 遮蔽 100 |
 |---|---|---|---|
-| 输入卡 / 提问卡 / 计划评审卡 | `遮蔽 × 0.28 + 0.50` | 0.50 | 0.78 |
+| 输入卡 / 提问卡 / 计划评审卡 / 审批卡 | `遮蔽 × 0.28 + 0.50` | 0.50 | 0.78 |
 | **浮层**（`/` 命令面板、输入框下方配件弹层、悬浮卡…） | `遮蔽 × 0.20 + 0.72` | 0.72 | 0.92 |
+| 菜单**吸顶分组标题**（滚动时贴顶那条） | `遮蔽 × 0.10 + 0.86` | 0.86 | 0.96 |
 
-浮层地板更高，因为它压在正文上、要压得住字。想单独调浮层厚薄，改 `native-glass/skin.css` 里两行
-`--dsh-glass-fill-popover`（亮/暗各一行）：`.20` 是灵敏度、`.72` 是地板。
+浮层地板更高，因为它压在正文上、要压得住字；吸顶标题底下正滚过正文，比菜单主体再实一档。
+想单独调，改 `native-glass/skin.css` 里对应两行（亮/暗各一行）：浮层看 `--dsh-glass-fill-popover`
+（`.20` 是灵敏度、`.72` 是地板），吸顶标题看 `--dsw-alias-menu-group-header-fill`。
+
+macOS 的「减少透明度」无障碍开关：打开后侧栏与各档玻璃填充会转为接近实色（官方对侧栏用
+`color-mix` 乘 alpha，会把开关效果抵消掉），本皮肤在该媒体条件下显式换成实底。
 想换底图：替换 `native-glass/assets/frost-{light,dark}.jpg` 即可。
 
 ### 装完怎么确认真的生效
 
-1. `GET {DSH地址}/api/skin-center/v2/catalog` → 在 `skins[]` 数组里找 `manifest.id == "native-glass"`，看它的 `manifest.version` 是否为 `1.9.2`、`warnings` 是否为空 —— **版本在这个数组里，顶层没有 `version` 字段**（解析错层会误判成"皮肤没被收录"）。`/api/skin-center/**` 这些路由**不需要登录**，裸 curl 就能验（只有首页 `/` 要 cookie）。
+1. `GET {DSH地址}/api/skin-center/v2/catalog` → 在 `skins[]` 数组里找 `manifest.id == "native-glass"`，看它的 `manifest.version` 是否为 `1.9.3`、`warnings` 是否为空 —— **版本在这个数组里，顶层没有 `version` 字段**（解析错层会误判成"皮肤没被收录"）。`/api/skin-center/**` 这些路由**不需要登录**，裸 curl 就能验（只有首页 `/` 要 cookie）。
 2. `GET {DSH地址}/api/skin-center/v2/skins/native-glass/assets/frost-dark.jpg` → 应 **200**（404 说明目录名不对）
 3. 界面没变化 = 前端缓存，**强刷**（Ctrl+F5 / Cmd+Shift+R）
 4. Windows 上画布/侧栏仍是纯色 ⇒ 见 [`INSTALL.md` §六](INSTALL.md)（外壳 token 冲突）

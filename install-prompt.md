@@ -12,7 +12,7 @@ macOS / Windows 都适用，不需要你手动敲命令。
 请帮我在本机的 DSH 桌面版上安装皮肤「原生玻璃（native-glass）」，按下面的步骤执行，每一步都先验证再往下走，最后把结果汇报给我。
 
 【要装的东西】
-- 皮肤：native-glass v1.9.2，来源仓库 https://github.com/NianwYue/native-glass-skin
+- 皮肤：native-glass v1.9.3，来源仓库 https://github.com/NianwYue/native-glass-skin
 - 依赖插件：@linxin666/dsh-client-ui-skin-center 0.4.4
 - 皮肤是纯声明式（只有 CSS 和图片，没有 hooks.mjs，不执行任何代码）
 - 关键约束：皮肤在皮肤中心里的 id 是 native-glass，安装目录名必须正好是 native-glass
@@ -37,7 +37,7 @@ macOS / Windows 都适用，不需要你手动敲命令。
 4. 落盘核验（缺一不可）：
    - <DSH_HOME>/skins/native-glass/ 下存在：skin.json、skin.css、patches.css
    - assets/ 下有 frost-light.jpg 与 frost-dark.jpg；preview/ 下有 light.jpg、dark.jpg
-   - skin.json 里 "id": "native-glass"、"version": "1.9.2"
+   - skin.json 里 "id": "native-glass"、"version": "1.9.3"
    - 皮肤不需要重启 DSH 即可被收录
 
 5. 让我在「设置 → 皮肤中心 → 原生玻璃 → 应用」点一下应用；你也可以直接读 <DSH_HOME>/skin-center-active.json 确认 "active" 是不是 native-glass，不是就告诉我。
@@ -46,7 +46,7 @@ macOS / Windows 都适用，不需要你手动敲命令。
    背景遮蔽 = 0；背景模糊（空对话/有内容）= 20/20；输入卡模糊 = 14；气泡不透明度 = 0；气泡模糊 = 0。
 
 7. 验证真的生效，并把证据给我：
-   - GET {DSH地址}/api/skin-center/v2/catalog → 应出现 native-glass、version 1.9.2、warnings 为空
+   - GET {DSH地址}/api/skin-center/v2/catalog → 应出现 native-glass、version 1.9.3、warnings 为空
    - GET {DSH地址}/api/skin-center/v2/skins/native-glass/assets/frost-dark.jpg → 应返回 200（404 说明目录名不对）
    - 界面看起来没变化就是前端缓存，让我强刷一次（Ctrl+F5 / Cmd+Shift+R）
    - Windows 上若画布/侧栏是纯色（底图被挡住），按仓库 INSTALL.md 的 §六 检查 [class*="_frame"] 规则是否已下发

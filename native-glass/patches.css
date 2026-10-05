@@ -171,7 +171,7 @@ body[data-ds-dark-theme] [data-composer-card]::after {
 [data-phase="active"][data-phase="active"] [data-slot="conversation.composer.dock"] > *,
 [data-phase="active"][data-phase="active"] [data-slot="conversation.composer.dock"] + *,
 [data-phase="active"][data-phase="active"] [data-slot="conversation.input.dock"] > *,
-[data-phase="active"][data-phase="active"] [data-slot="conversation.input.dock"] + * 
+[data-phase="active"][data-phase="active"] [data-slot="conversation.input.dock"] + *,
 [data-phase="active"] [data-slot="conversation.composer.dock"] + *,
 [data-phase="active"] [data-slot="conversation.input.dock"] > *,
 [data-dsh-backdrop-active] [data-phase="active"] [data-slot="conversation.composer.dock"] > *,
@@ -181,8 +181,8 @@ body[data-ds-dark-theme] [data-composer-card]::after {
   -webkit-backdrop-filter: none !important;
 }
 
-/* 9) 「模型向用户提问 / 计划评审」卡片 —— 接入统一玻璃材质（2026-10-05）
- * 官方（dsh-client-ui-user-questions）给这两张卡的是
+/* 9) 「模型向用户提问 / 计划评审 / 审批」卡片 —— 接入统一玻璃材质（2026-10-05）
+ * 官方给这三张卡的都是
  *     background: var(--dsw-specific-input-major)   ← 本皮肤已把它做成半透明
  * 但卡片本体**没有 backdrop-filter** ⇒ 半透明底把下面的正文原样透出来，
  * 看起来就是"纯透明、没有底板"。
@@ -193,18 +193,28 @@ body[data-ds-dark-theme] [data-composer-card]::after {
  * 这样卡片里的选项行（带 background-color 过渡的 hover 目标）不会反复重算"背景根"，
  * 避开 1.8.1 那个 hover 鬼畜的成因。
  *
- * 选择器用稳定锚点：data-question-key / data-plan-review-key 挂在 .frame 上，
- * 卡片是它的直接子 <section>（哈希类名会变，属性不会）。
+ * 三个锚点承担**相同视觉角色**，但直接子元素的标签不同（哈希类名会变，锚点与标签不会）：
+ *   [data-question-key]    → QuestionComposer: div.frame > section.card
+ *   [data-plan-review-key] → PlanReviewPanel:  div.frame > section.card
+ *   [data-approval-key]    → ApprovalPanel:    div.root  > div.card       ← 不是 section！
+ * ⚠️ 不要为了"好看"而机械地把三处统一写成同一种 child selector：审批卡写成
+ *    `> section` 在 dsh 0.2.0-rc.2 上**永远匹配不到**（源码里根是 div、卡片也是
+ *    `div.gOeFyG_card`），属于"CSS 合法、控制台不报错、规则静默失效"。
+ *    （0.2.0-rc.2 证据：ui-approval 的 render 为
+ *     `div.gOeFyG_root[data-approval-key] > div.gOeFyG_card`，
+ *     且 `.gOeFyG_card` 的 background 正是 var(--dsw-specific-input-major)。）
  */
 [data-question-key] > section,
-[data-plan-review-key] > section {
+[data-plan-review-key] > section,
+[data-approval-key] > div {
   background: none !important;
   position: relative;
   isolation: isolate;
 }
 
 [data-question-key] > section::before,
-[data-plan-review-key] > section::before {
+[data-plan-review-key] > section::before,
+[data-approval-key] > div::before {
   content: "";
   position: absolute;
   inset: 0;
@@ -226,11 +236,39 @@ body[data-ds-dark-theme] [data-composer-card]::after {
  *    [data-slot="conversation.*.dock"] > * 的 backdrop-filter:none 都会波及它，
  * 结果就是 / 面板看着"还是透的"（糊没生效，下面的正文原样透出来）。
  * 这里不绕 token，直接用稳定属性锚点把它按统一玻璃材质再画一遍。
- * 两个头互补：材质层在 → 只画材质层（无后代，安全）；不在 → 宿主本体兜底上色。 */
-[data-menu-material] > [aria-hidden="true"]:first-child,
-[data-menu-material]:not(:has(> [aria-hidden="true"])) {
+ * 两个头互补：材质层在 → 只画材质层（无后代，安全）；不在 → 宿主 ::before 兜底。 */
+[data-menu-material] > [aria-hidden="true"]:first-child {
   background-color: var(--dsh-glass-fill-popover) !important;
   backdrop-filter: blur(var(--dsh-input-card-blur, 20px)) saturate(1.06) !important;
   -webkit-backdrop-filter: blur(var(--dsh-input-card-blur, 20px)) saturate(1.06) !important;
+}
+
+/* —— fallback（MenuSurface 里没有 .material 那一层时）——
+ * 原来这里把 backdrop-filter 直接挂在 **MenuSurface 宿主本体** 上，等于自己推翻第 3 节：
+ * 本体里有菜单项 / 按钮 / 子菜单，正是「祖先带 filter ⇒ 后代浮层糊不到真正的页面 + 背景根
+ * 反复重算」的配方（也正是 1.8.1 hover 鬼畜的成因）。
+ * 上游自己的注释写明这条设计是被刻意守住的（MenuSurface.module.css 原文）：
+ *   "Filtering only the background keeps nested menus and fixed overlays free of
+ *    an ancestor backdrop root or a new fixed-position containing block."
+ *   —— 所以 filter 只能待在 .material（无后代）那一层。
+ * 改法与第 9 节同款：本体清空填充，交给无后代的 ::before。
+ * ⚠️ position / isolation 官方已在 `.surface` 上给了（:where(.surface){position:relative}
+ *    + .surface{isolation:isolate}），这里只是显式再声明一次，值相同、无副作用。 */
+[data-menu-material]:not(:has(> [aria-hidden="true"])) {
+  background: none !important;
+  position: relative;
+  isolation: isolate;
+}
+
+[data-menu-material]:not(:has(> [aria-hidden="true"]))::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: var(--dsh-glass-fill-popover);
+  backdrop-filter: blur(var(--dsh-input-card-blur, 20px)) saturate(1.06);
+  -webkit-backdrop-filter: blur(var(--dsh-input-card-blur, 20px)) saturate(1.06);
+  pointer-events: none;
 }
 

@@ -1,5 +1,7 @@
 /**
- * Native Glass v1.3 — 官方外观 + 毛玻璃输入卡（纯 L1 token 重映射，无 patches.css / hooks.mjs）
+ * Native Glass v1.9.x — 官方外观 + 毛玻璃输入卡与全部浮层
+ *   本文件 = L1 token 数据面（配色 / 填充 / 糊度旋钮）；
+ *   需要 DOM 定位的高敏感补丁在 patches.css（10 个 section）；无 hooks.mjs、无 JS 执行。
  *
  * 为什么需要皮肤：皮肤中心的「输入卡模糊」只是 body 级跟随层（data-dsh-composer-frost），规则为
  *   html[data-dsh-backdrop-active][data-dsh-conversation-content] [data-dsh-composer-frost]
@@ -156,4 +158,58 @@ body[data-ds-dark-theme] {
   --dsw-hovercard-bg: var(--dsh-glass-fill-popover) !important;
   /* 官方默认 blur(40px) saturate(150%)；这里跟输入卡同配方 */
   --dsw-menu-backdrop-filter: blur(var(--dsh-input-card-blur, 20px)) saturate(1.06) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   菜单「吸顶分组标题」填充（dsh 0.2.0-rc.2 新增 token，2026-10-05 补）
+   ─────────────────────────────────────────────────────────────────────
+   元素：MenuSurface 里的 `.heading[data-stuck]`
+        （模型选择器下拉滚起来以后，贴在顶部那条分组标题）
+   官方默认：浅色 #f8f9faf0 / 深色 #303136f0，即 94% 不透明，
+            文档原话「独立于菜单材质」—— 它**不**消费 --dsw-menu-surface-fill。
+   ⇒ 只统一那三个浮层 token 的话，菜单主体已经毛玻璃了，滚动时这条标题
+      会突然变成一条几乎不透明的实色带（视觉断层）。
+   这里的取值比菜单主体略实：标题底下正滚过正文，太透会糊成一片。
+   仍跟随「背景遮蔽」滑杆（.10*遮蔽 + .86），比主体公式（.20+.72）稳定高一档。
+   必须写在 body 级块（官方在 :root 定义，运行时 append 的主题 <style> 更靠后，
+   同分同源时官方赢；body 级带 !important 才是稳的）。
+   ═══════════════════════════════════════════════════════════════════════ */
+body:not([data-ds-dark-theme]) {
+  --dsw-alias-menu-group-header-fill: rgba(255, 255, 255, calc(var(--dsw-skin-scrim, 0.85) * .10 + .86)) !important;
+}
+
+body[data-ds-dark-theme] {
+  --dsw-alias-menu-group-header-fill: rgba(62, 64, 70, calc(var(--dsw-skin-scrim, 0.85) * .10 + .86)) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   macOS「减少透明度」无障碍开关（2026-10-05 补）
+   ─────────────────────────────────────────────────────────────────────
+   官方在 AppFrame.module.css 里为这个开关专门写了一条：
+     @media (prefers-reduced-transparency: reduce) {
+       [data-platform='darwin'] .sidebarCol {
+         background: color-mix(in srgb, var(--dsw-specific-sidebar-fill) 90%, transparent);
+       }
+     }
+   意图是"开开关 → 侧栏变成约 90% 不透明的实底"。
+   但 color-mix 是**乘 alpha**：本皮肤的 --dsw-specific-sidebar-fill 本身是半透明
+   RGBA（遮蔽 0% 时 alpha 只有 .22，85% 时 .645）⇒ 90% 之后只剩 .198~.58，
+   等于把用户的无障碍开关抵消掉了，与系统语义相反。
+   修法：在该媒体条件下把填充换成**实色**，官方那条 90% 混合才真正得到 90% 不透明；
+   顺手把两档玻璃填充也推到接近实心（它们被输入卡 / 浮层 / 各卡片共用），
+   这样"减少透明度"时整个界面一致变实。糊度旋钮不动 —— 实底之上 blur 本就无观感，
+   且不去动用户自己的滑杆值。
+   ═══════════════════════════════════════════════════════════════════════ */
+@media (prefers-reduced-transparency: reduce) {
+  body:not([data-ds-dark-theme]) {
+    --dsw-specific-sidebar-fill: rgb(255, 255, 255) !important;
+    --dsh-glass-fill: rgba(255, 255, 255, .97) !important;
+    --dsh-glass-fill-popover: rgba(255, 255, 255, .97) !important;
+  }
+
+  body[data-ds-dark-theme] {
+    --dsw-specific-sidebar-fill: rgb(21, 21, 23) !important;
+    --dsh-glass-fill: rgba(62, 64, 70, .97) !important;
+    --dsh-glass-fill-popover: rgba(62, 64, 70, .97) !important;
+  }
 }
